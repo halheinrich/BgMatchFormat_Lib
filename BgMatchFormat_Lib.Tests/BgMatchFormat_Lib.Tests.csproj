@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\BgGame_Lib\BgGame_Lib\BgGame_Lib.csproj" />
+    <ProjectReference Include="..\..\BgDataTypes_Lib\BgDataTypes_Lib\BgDataTypes_Lib.csproj" />
+    <!-- Test-only: the seeded real-wire golden drives a real match, whose play
+         agent needs the move generator. The library itself does not use BgMoveGen. -->
+    <ProjectReference Include="..\..\BgMoveGen\BgMoveGen\BgMoveGen.csproj" />
+    <ProjectReference Include="..\BgMatchFormat_Lib\BgMatchFormat_Lib.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Goldens\**\*.mat">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

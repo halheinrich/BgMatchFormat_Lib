@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="../BgDataTypes_Lib/BgDataTypes_Lib/BgDataTypes_Lib.csproj" />
+  <Project Path="../BgGame_Lib/BgGame_Lib/BgGame_Lib.csproj" />
+  <Project Path="../BgMoveGen/BgMoveGen/BgMoveGen.csproj" />
+  <Project Path="BgMatchFormat_Lib.Tests/BgMatchFormat_Lib.Tests.csproj" />
+  <Project Path="BgMatchFormat_Lib/BgMatchFormat_Lib.csproj" />
+</Solution>

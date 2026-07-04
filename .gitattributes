@@ -1,0 +1,2 @@
+# .MAT golden files are byte-exact fixtures: LF endings, no autocrlf mangling.
+*.mat text eol=lf
