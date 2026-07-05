@@ -221,4 +221,71 @@ public sealed class MatExportGoldenTests
 
         GoldenFile.Verify("forfeit_empty.mat", mat);
     }
+
+    [Fact]
+    public void Abandoned_WithPartialGame_MovesThenReasonComment()
+    {
+        // Winner-less termination: like a forfeit but no seat is awarded. The
+        // completed game exports normally, the partial game's moves export with no
+        // result line, and the caller's reason is the trailing comment.
+        GameRecord completed = new GameBuilder(matchLength: 3, player1Entering: 0, player2Entering: 0)
+            .Play(MatchSeat.One, 6, 5, "24/18", "13/8")
+            .Play(MatchSeat.Two, 3, 1, "8/5", "6/5")
+            .EndGame(MatchSeat.Two)                                 // 0-1
+            .AsGameRecord();
+
+        Transcript partial = new GameBuilder(matchLength: 3, player1Entering: 0, player2Entering: 1)
+            .Play(MatchSeat.One, 4, 2, "24/20", "13/11")
+            .Play(MatchSeat.Two, 6, 3, "24/18", "13/10")
+            .AsPartialTranscript();
+
+        string mat = MatExporter.Export(
+            MatchExport.ForAbandoned(3, "gobetzu", "torsten", [completed], partial,
+                "match aborted by tournament server", Tags("abandoned")));
+
+        GoldenFile.Verify("abandoned_partial.mat", mat);
+    }
+
+    [Fact]
+    public void Abandoned_EmptyPartialGame_OmitsBlockKeepsReasonComment()
+    {
+        GameRecord completed = new GameBuilder(matchLength: 3, player1Entering: 0, player2Entering: 0)
+            .Play(MatchSeat.One, 6, 5, "24/18", "13/8")
+            .Play(MatchSeat.Two, 3, 1, "8/5", "6/5")
+            .EndGame(MatchSeat.Two)
+            .AsGameRecord();
+
+        // Termination struck before the game's first play: no game block, only the
+        // reason comment.
+        Transcript emptyPartial = new GameBuilder(matchLength: 3, player1Entering: 0, player2Entering: 1)
+            .AsPartialTranscript();
+
+        string mat = MatExporter.Export(
+            MatchExport.ForAbandoned(3, "gobetzu", "torsten", [completed], emptyPartial,
+                "connection lost", Tags("abandoned-empty")));
+
+        GoldenFile.Verify("abandoned_empty.mat", mat);
+    }
+
+    [Fact]
+    public void Abandoned_MoneySession_NoFinalLineReasonComment()
+    {
+        // A money session (length 0) abandoned mid-play: 0 point match header, a
+        // completed game, no match-final line, and the reason comment.
+        GameRecord completed = new GameBuilder(matchLength: 0, player1Entering: 0, player2Entering: 0)
+            .Play(MatchSeat.One, 6, 5, "24/18", "13/8")
+            .Play(MatchSeat.Two, 3, 1, "8/5", "6/5")
+            .EndGame(MatchSeat.One)
+            .AsGameRecord();
+
+        Transcript partial = new GameBuilder(matchLength: 0, player1Entering: 0, player2Entering: 0)
+            .Play(MatchSeat.Two, 5, 3, "8/3", "6/3")
+            .AsPartialTranscript();
+
+        string mat = MatExporter.Export(
+            MatchExport.ForAbandoned(0, "gobetzu", "torsten", [completed], partial,
+                "engine faulted", Tags("abandoned-money")));
+
+        GoldenFile.Verify("abandoned_money.mat", mat);
+    }
 }

@@ -108,4 +108,58 @@ public sealed class MatchExportValidationTests
         Assert.Equal(0, export.MatchLength);
         Assert.False(export.AppendsMatchSuffix);
     }
+
+    [Fact]
+    public void ForAbandoned_NegativeLength_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            MatchExport.ForAbandoned(-1, "a", "b", [ShortGameWonBy(MatchSeat.One, 0, 0)],
+                partialGame: null, "aborted"));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("line one\nline two")]
+    [InlineData("carriage\rreturn")]
+    public void ForAbandoned_EmptyOrMultiLineReason_Throws(string reason)
+    {
+        Assert.ThrowsAny<ArgumentException>(() =>
+            MatchExport.ForAbandoned(3, "a", "b", [ShortGameWonBy(MatchSeat.One, 0, 0)],
+                partialGame: null, reason));
+    }
+
+    [Fact]
+    public void ForAbandoned_NullReason_Throws()
+    {
+        Assert.Throws<ArgumentNullException>(() =>
+            MatchExport.ForAbandoned(3, "a", "b", [ShortGameWonBy(MatchSeat.One, 0, 0)],
+                partialGame: null, terminationReason: null!));
+    }
+
+    [Fact]
+    public void ForAbandoned_PositiveLength_NoMatchFinalLine()
+    {
+        // A winner-less termination never emits ' and the match', even at positive
+        // length — unlike a completed match, which is the whole reason ForfeitWinner
+        // is not the sole discriminant of AppendsMatchSuffix.
+        MatchExport export = MatchExport.ForAbandoned(
+            3, "a", "b", [ShortGameWonBy(MatchSeat.One, 0, 0)], partialGame: null, "aborted");
+
+        Assert.False(export.AppendsMatchSuffix);
+        Assert.Null(export.ForfeitWinner);
+        Assert.Equal("aborted", export.TerminationReason);
+    }
+
+    [Fact]
+    public void ForAbandoned_MoneySession_Allowed()
+    {
+        // A money session (length 0) can be abandoned mid-play: no match-final line,
+        // a reason comment, no winner.
+        MatchExport export = MatchExport.ForAbandoned(
+            0, "a", "b", [ShortGameWonBy(MatchSeat.One, 0, 0)], partialGame: null, "engine faulted");
+
+        Assert.Equal(0, export.MatchLength);
+        Assert.False(export.AppendsMatchSuffix);
+        Assert.Null(export.ForfeitWinner);
+    }
 }

@@ -47,14 +47,18 @@ public static class MatExporter
             WriteGame(sb, ref gameNumber, completed[i].Transcript.Entries, match, suffix);
         }
 
-        // The in-flight forfeited game exports its moves with no result line. If
-        // forfeit struck before its first entry there is no block to write.
+        // The trailing in-flight game exports its moves with no result line. If
+        // termination struck before its first entry there is no block to write.
         if (match.PartialGame is { Entries.Count: > 0 } partial)
             WriteGame(sb, ref gameNumber, partial.Entries, match, appendMatchSuffix: false);
 
-        // A forfeit is recorded as a comment so the body stays strictly standard.
+        // A terminated match records why as a comment so the body stays strictly
+        // standard: the library owns the "wins by forfeit" sentence, but for a
+        // winner-less abandonment the caller owns the reason text verbatim.
         if (match.ForfeitWinner is MatchSeat winner)
             AppendLine(sb, $"; {PlayerName(match, winner)} wins by forfeit");
+        else if (match.TerminationReason is string reason)
+            AppendLine(sb, $"; {reason}");
 
         return sb.ToString();
     }

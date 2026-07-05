@@ -9,17 +9,17 @@ namespace BgMatchFormat_Lib;
 /// </summary>
 /// <remarks>
 /// <para>
-/// A match never has to have produced a <c>MatchResult</c> — a forfeited match
-/// never does. The exporter reads only ordered game transcripts
+/// A match never has to have produced a <c>MatchResult</c> — a forfeited or
+/// abandoned match never does. The exporter reads only ordered game transcripts
 /// (<see cref="GameRecord"/> for a finished game; a bare <see cref="Transcript"/>
 /// for a trailing in-flight game), the match length, two player names, and
 /// pass-through header tags.
 /// </para>
 /// <para>
-/// The three factory methods make the mutually exclusive shapes — a completed
-/// match, a money session, a forfeit — the only representable states, and validate
-/// their inputs eagerly so a malformed export fails at construction rather than
-/// producing corrupt <c>.MAT</c> text.
+/// The four factory methods make the mutually exclusive shapes — a completed
+/// match, a money session, a forfeit, an abandonment — the only representable
+/// states, and validate their inputs eagerly so a malformed export fails at
+/// construction rather than producing corrupt <c>.MAT</c> text.
 /// </para>
 /// </remarks>
 public sealed class MatchExport
@@ -43,29 +43,38 @@ public sealed class MatchExport
     public IReadOnlyList<GameRecord> CompletedGames { get; }
 
     /// <summary>
-    /// The trailing in-flight game of a forfeited match, or <see langword="null"/>.
-    /// An empty transcript here (forfeit before the game's first entry) is exported
-    /// as no game block at all.
+    /// The trailing in-flight game of a forfeited or abandoned match, or
+    /// <see langword="null"/>. An empty transcript here (termination before the
+    /// game's first entry) is exported as no game block at all.
     /// </summary>
     public Transcript? PartialGame { get; }
 
     /// <summary>
     /// The seat awarded the forfeited match, or <see langword="null"/> for a
-    /// normally-concluded match or money session.
+    /// normally-concluded match, money session, or abandonment.
     /// </summary>
     public MatchSeat? ForfeitWinner { get; }
 
     /// <summary>
-    /// Whether the deciding game's result carries the <c>and the match</c> suffix.
-    /// True only for a positive-length, non-forfeited match; money sessions and
-    /// forfeits never emit a match-final line.
+    /// The caller-supplied reason a winner-less match was terminated, or
+    /// <see langword="null"/> for a normally-concluded match, money session, or
+    /// forfeit. Rendered verbatim as the trailing <c>;</c> comment.
     /// </summary>
-    internal bool AppendsMatchSuffix => MatchLength > 0 && ForfeitWinner is null;
+    public string? TerminationReason { get; }
+
+    /// <summary>
+    /// Whether the deciding game's result carries the <c>and the match</c> suffix.
+    /// True only for a positive-length match that was neither forfeited nor
+    /// abandoned; money sessions, forfeits, and abandonments never emit a
+    /// match-final line.
+    /// </summary>
+    internal bool AppendsMatchSuffix =>
+        MatchLength > 0 && ForfeitWinner is null && TerminationReason is null;
 
     private MatchExport(
         int matchLength, string player1Name, string player2Name,
         IReadOnlyList<GameRecord> completedGames, Transcript? partialGame,
-        MatchSeat? forfeitWinner, IReadOnlyList<MatHeaderTag> tags)
+        MatchSeat? forfeitWinner, string? terminationReason, IReadOnlyList<MatHeaderTag> tags)
     {
         MatchLength = matchLength;
         Player1Name = player1Name;
@@ -73,6 +82,7 @@ public sealed class MatchExport
         CompletedGames = completedGames;
         PartialGame = partialGame;
         ForfeitWinner = forfeitWinner;
+        TerminationReason = terminationReason;
         Tags = tags;
     }
 
@@ -102,7 +112,7 @@ public sealed class MatchExport
         foreach (GameRecord game in games) RequirePlayed(game, nameof(games));
         RequireCompletes(games, matchLength);
 
-        return new MatchExport(matchLength, player1Name, player2Name, games, null, null, tagList);
+        return new MatchExport(matchLength, player1Name, player2Name, games, null, null, null, tagList);
     }
 
     /// <summary>
@@ -121,7 +131,7 @@ public sealed class MatchExport
         IReadOnlyList<MatHeaderTag> tagList = ValidateTags(tags);
         foreach (GameRecord game in games) RequirePlayed(game, nameof(games));
 
-        return new MatchExport(0, player1Name, player2Name, games, null, null, tagList);
+        return new MatchExport(0, player1Name, player2Name, games, null, null, null, tagList);
     }
 
     /// <summary>
@@ -131,6 +141,13 @@ public sealed class MatchExport
     /// line is ever emitted. A money session can be forfeited too — pass
     /// <paramref name="matchLength"/> <c>0</c> for money semantics.
     /// </summary>
+    /// <remarks>
+    /// The winner is required, not optional: a forfeit is a <em>resolved</em>
+    /// outcome — one seat is awarded the match — and the library owns the whole
+    /// comment sentence (<c>; &lt;winner&gt; wins by forfeit</c>). A termination
+    /// with no winner is a different shape; use <see cref="ForAbandoned"/>, which
+    /// takes a caller-supplied reason instead of a seat.
+    /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="matchLength"/>
     /// is negative, or <paramref name="forfeitWinner"/> is not a defined seat.</exception>
     /// <exception cref="ArgumentException">A name or tag is malformed, or a completed
@@ -153,7 +170,47 @@ public sealed class MatchExport
         foreach (GameRecord game in completedGames) RequirePlayed(game, nameof(completedGames));
 
         return new MatchExport(
-            matchLength, player1Name, player2Name, completedGames, partialGame, forfeitWinner, tagList);
+            matchLength, player1Name, player2Name, completedGames, partialGame, forfeitWinner, null, tagList);
+    }
+
+    /// <summary>
+    /// A winner-less terminated match: the completed games export normally, the
+    /// optional in-flight <paramref name="partialGame"/> exports its moves with no
+    /// result line, and <paramref name="terminationReason"/> is rendered verbatim
+    /// as the trailing <c>;</c> comment. No match-final line is ever emitted. A
+    /// money session can be abandoned too — pass <paramref name="matchLength"/>
+    /// <c>0</c> for money semantics.
+    /// </summary>
+    /// <remarks>
+    /// The counterpart to <see cref="ForForfeit"/> for terminations with no awarded
+    /// seat (a tournament server's aborted or faulted match). The library stays
+    /// taxonomy-blind: it owns only the comment framing (the leading <c>; </c>) and
+    /// the caller owns the reason text. The reason must be a single non-empty line —
+    /// the format has no multi-line comment convention, so a newline is rejected
+    /// rather than mangled, consistent with player-name and header-tag validation.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="matchLength"/>
+    /// is negative.</exception>
+    /// <exception cref="ArgumentException">A name or tag is malformed, a completed
+    /// game has no transcript, or <paramref name="terminationReason"/> is empty or
+    /// spans multiple lines.</exception>
+    public static MatchExport ForAbandoned(
+        int matchLength, string player1Name, string player2Name,
+        IReadOnlyList<GameRecord> completedGames, Transcript? partialGame,
+        string terminationReason, IEnumerable<MatHeaderTag>? tags = null)
+    {
+        if (matchLength < 0)
+            throw new ArgumentOutOfRangeException(nameof(matchLength), matchLength,
+                "Match length cannot be negative (0 = money session).");
+        ValidateName(player1Name, nameof(player1Name));
+        ValidateName(player2Name, nameof(player2Name));
+        ArgumentNullException.ThrowIfNull(completedGames);
+        ValidateReason(terminationReason);
+        IReadOnlyList<MatHeaderTag> tagList = ValidateTags(tags);
+        foreach (GameRecord game in completedGames) RequirePlayed(game, nameof(completedGames));
+
+        return new MatchExport(
+            matchLength, player1Name, player2Name, completedGames, partialGame, null, terminationReason, tagList);
     }
 
     private static void ValidateName(string name, string parameterName)
@@ -161,6 +218,15 @@ public sealed class MatchExport
         ArgumentException.ThrowIfNullOrEmpty(name, parameterName);
         if (name.IndexOfAny(ForbiddenNameChars) >= 0)
             throw new ArgumentException("Player names cannot contain newline characters.", parameterName);
+    }
+
+    private static void ValidateReason(string terminationReason)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(terminationReason);
+        if (terminationReason.IndexOfAny(ForbiddenNameChars) >= 0)
+            throw new ArgumentException(
+                "A termination reason must be a single line; .MAT has no multi-line comment convention.",
+                nameof(terminationReason));
     }
 
     private static IReadOnlyList<MatHeaderTag> ValidateTags(IEnumerable<MatHeaderTag>? tags)

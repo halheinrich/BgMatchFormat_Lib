@@ -122,19 +122,34 @@ entry via `EnteringScores`, resolving the on-roll-relative snapshot against
 
 ### Input shape — `MatchExport`
 
-Immutable, built through three validating factories that make the mutually
+Immutable, built through four validating factories that make the mutually
 exclusive shapes the only representable states:
 
 * `ForMatch` — a completed positive-length match; validates that the games
-  actually finish it (else the caller wanted `ForForfeit`). The deciding game gets
-  the ` and the match` suffix.
+  actually finish it (else the caller wanted `ForForfeit`/`ForAbandoned`). The
+  deciding game gets the ` and the match` suffix.
 * `ForMoneySession` — length 0; per-game results only.
-* `ForForfeit` — completed games export normally; the optional in-flight partial
-  game exports its moves with no result line; a `; <winner> wins by forfeit`
-  comment keeps the body strictly standard. **A money session can be forfeited
-  too** (pass length 0) — an engine can disconnect mid-session.
+* `ForForfeit` — a terminated match **with a winner**; completed games export
+  normally; the optional in-flight partial game exports its moves with no result
+  line; a `; <winner> wins by forfeit` comment keeps the body strictly standard.
+  **A money session can be forfeited too** (pass length 0) — an engine can
+  disconnect mid-session.
+* `ForAbandoned` — a terminated match **with no winner** (a tournament server's
+  aborted/faulted match). Same body semantics as `ForForfeit`, but instead of a
+  seat it takes a caller-supplied, single-line reason rendered verbatim as the
+  trailing `; <reason>` comment. The library owns only the comment framing (the
+  leading `; `) and stays taxonomy-blind; length 0 is supported for an abandoned
+  session.
 
-No `MatchResult` is ever required — a forfeited match never produces one.
+`ForForfeit` **deliberately keeps its winner required**: a forfeit is a *resolved*
+outcome — one seat is awarded the match — so the library owns the whole comment
+sentence and there is nothing for the caller to phrase. `ForAbandoned` is the
+winner-less counterpart, where no seat is awarded and the caller owns the reason
+text. The two never coexist: forfeit sets `ForfeitWinner`, abandonment sets
+`TerminationReason`, and both suppress the match-final line.
+
+No `MatchResult` is ever required — neither a forfeited nor an abandoned match
+produces one.
 
 ## Public API
 
@@ -151,7 +166,8 @@ public sealed class MatchExport
     public IReadOnlyList<MatHeaderTag> Tags { get; }
     public IReadOnlyList<GameRecord> CompletedGames { get; }
     public Transcript? PartialGame { get; }
-    public MatchSeat? ForfeitWinner { get; }
+    public MatchSeat? ForfeitWinner { get; }                // set by ForForfeit only
+    public string? TerminationReason { get; }               // set by ForAbandoned only
 
     public static MatchExport ForMatch(int matchLength, string player1Name, string player2Name,
         IReadOnlyList<GameRecord> games, IEnumerable<MatHeaderTag>? tags = null);
@@ -160,6 +176,9 @@ public sealed class MatchExport
     public static MatchExport ForForfeit(int matchLength, string player1Name, string player2Name,
         IReadOnlyList<GameRecord> completedGames, Transcript? partialGame,
         MatchSeat forfeitWinner, IEnumerable<MatHeaderTag>? tags = null);
+    public static MatchExport ForAbandoned(int matchLength, string player1Name, string player2Name,
+        IReadOnlyList<GameRecord> completedGames, Transcript? partialGame,
+        string terminationReason, IEnumerable<MatHeaderTag>? tags = null);
 }
 
 public static class MatExporter
@@ -169,8 +188,9 @@ public static class MatExporter
 ```
 
 Factories reject inputs that would corrupt the grammar: empty or newline-bearing
-player names, and header tag names/values containing a quote or newline (rejected,
-not escaped — the format has no escaping convention). Tag values may be empty.
+player names, header tag names/values containing a quote or newline (rejected, not
+escaped — the format has no escaping convention), and an empty or multi-line
+`ForAbandoned` termination reason. Tag values may be empty.
 
 ## Pitfalls
 
