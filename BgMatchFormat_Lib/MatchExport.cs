@@ -50,37 +50,62 @@ public sealed class MatchExport
     public Transcript? PartialGame { get; }
 
     /// <summary>
-    /// The seat awarded the forfeited match, or <see langword="null"/> for a
-    /// normally-concluded match, money session, or abandonment.
+    /// The seat awarded the forfeited match, or <see langword="null"/> otherwise.
+    /// Non-null exactly when <see cref="Termination"/> is
+    /// <see cref="TerminationKind.Forfeit"/>.
     /// </summary>
     public MatchSeat? ForfeitWinner { get; }
 
     /// <summary>
-    /// The caller-supplied reason a winner-less match was terminated, or
-    /// <see langword="null"/> for a normally-concluded match, money session, or
-    /// forfeit. Rendered verbatim as the trailing <c>;</c> comment.
+    /// The caller-supplied reason a winner-less match was terminated, rendered
+    /// verbatim as the trailing <c>;</c> comment, or <see langword="null"/>
+    /// otherwise. Non-null exactly when <see cref="Termination"/> is
+    /// <see cref="TerminationKind.Abandoned"/>.
     /// </summary>
     public string? TerminationReason { get; }
 
     /// <summary>
-    /// Whether the deciding game's result carries the <c>and the match</c> suffix.
-    /// True only for a positive-length match that was neither forfeited nor
-    /// abandoned; money sessions, forfeits, and abandonments never emit a
-    /// match-final line.
+    /// How the match reached its terminal state — decided once by the originating
+    /// factory. This is the single discriminator for the match-final line and the
+    /// trailing termination comment; the forfeit and abandonment payloads
+    /// (<see cref="ForfeitWinner"/>, <see cref="TerminationReason"/>) are present
+    /// exactly for their corresponding kind. Orthogonal to stakes: a money session
+    /// (<see cref="MatchLength"/> <c>0</c>) can end in any of these ways.
     /// </summary>
-    internal bool AppendsMatchSuffix =>
-        MatchLength > 0 && ForfeitWinner is null && TerminationReason is null;
+    internal TerminationKind Termination { get; }
+
+    /// <summary>
+    /// Whether the deciding game's result carries the <c>and the match</c> suffix —
+    /// true only for a normally-completed match of positive length. Money sessions
+    /// (length 0), forfeits, and abandonments never emit a match-final line.
+    /// </summary>
+    internal bool AppendsMatchSuffix => Termination == TerminationKind.Completed && MatchLength > 0;
+
+    /// <summary>How a <see cref="MatchExport"/> reached its terminal state.</summary>
+    internal enum TerminationKind
+    {
+        /// <summary>Played to conclusion: a finished match or a money session.</summary>
+        Completed,
+
+        /// <summary>Ended early, the match awarded to <see cref="ForfeitWinner"/>.</summary>
+        Forfeit,
+
+        /// <summary>Ended early with no winner; <see cref="TerminationReason"/> says why.</summary>
+        Abandoned,
+    }
 
     private MatchExport(
         int matchLength, string player1Name, string player2Name,
         IReadOnlyList<GameRecord> completedGames, Transcript? partialGame,
-        MatchSeat? forfeitWinner, string? terminationReason, IReadOnlyList<MatHeaderTag> tags)
+        TerminationKind termination, MatchSeat? forfeitWinner, string? terminationReason,
+        IReadOnlyList<MatHeaderTag> tags)
     {
         MatchLength = matchLength;
         Player1Name = player1Name;
         Player2Name = player2Name;
         CompletedGames = completedGames;
         PartialGame = partialGame;
+        Termination = termination;
         ForfeitWinner = forfeitWinner;
         TerminationReason = terminationReason;
         Tags = tags;
@@ -112,7 +137,9 @@ public sealed class MatchExport
         foreach (GameRecord game in games) RequirePlayed(game, nameof(games));
         RequireCompletes(games, matchLength);
 
-        return new MatchExport(matchLength, player1Name, player2Name, games, null, null, null, tagList);
+        return new MatchExport(
+            matchLength, player1Name, player2Name, games, null,
+            TerminationKind.Completed, null, null, tagList);
     }
 
     /// <summary>
@@ -131,7 +158,9 @@ public sealed class MatchExport
         IReadOnlyList<MatHeaderTag> tagList = ValidateTags(tags);
         foreach (GameRecord game in games) RequirePlayed(game, nameof(games));
 
-        return new MatchExport(0, player1Name, player2Name, games, null, null, null, tagList);
+        return new MatchExport(
+            0, player1Name, player2Name, games, null,
+            TerminationKind.Completed, null, null, tagList);
     }
 
     /// <summary>
@@ -170,7 +199,8 @@ public sealed class MatchExport
         foreach (GameRecord game in completedGames) RequirePlayed(game, nameof(completedGames));
 
         return new MatchExport(
-            matchLength, player1Name, player2Name, completedGames, partialGame, forfeitWinner, null, tagList);
+            matchLength, player1Name, player2Name, completedGames, partialGame,
+            TerminationKind.Forfeit, forfeitWinner, null, tagList);
     }
 
     /// <summary>
@@ -210,7 +240,8 @@ public sealed class MatchExport
         foreach (GameRecord game in completedGames) RequirePlayed(game, nameof(completedGames));
 
         return new MatchExport(
-            matchLength, player1Name, player2Name, completedGames, partialGame, null, terminationReason, tagList);
+            matchLength, player1Name, player2Name, completedGames, partialGame,
+            TerminationKind.Abandoned, null, terminationReason, tagList);
     }
 
     private static void ValidateName(string name, string parameterName)

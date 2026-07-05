@@ -53,12 +53,18 @@ public static class MatExporter
             WriteGame(sb, ref gameNumber, partial.Entries, match, appendMatchSuffix: false);
 
         // A terminated match records why as a comment so the body stays strictly
-        // standard: the library owns the "wins by forfeit" sentence, but for a
-        // winner-less abandonment the caller owns the reason text verbatim.
-        if (match.ForfeitWinner is MatchSeat winner)
-            AppendLine(sb, $"; {PlayerName(match, winner)} wins by forfeit");
-        else if (match.TerminationReason is string reason)
-            AppendLine(sb, $"; {reason}");
+        // standard. The kind is decided once at the factory and drives the branch;
+        // the library owns the "wins by forfeit" sentence, while a winner-less
+        // abandonment renders the caller's reason text verbatim.
+        switch (match.Termination)
+        {
+            case MatchExport.TerminationKind.Forfeit:
+                AppendLine(sb, $"; {PlayerName(match, match.ForfeitWinner!.Value)} wins by forfeit");
+                break;
+            case MatchExport.TerminationKind.Abandoned:
+                AppendLine(sb, $"; {match.TerminationReason}");
+                break;
+        }
 
         return sb.ToString();
     }

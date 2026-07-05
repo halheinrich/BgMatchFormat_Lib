@@ -145,8 +145,14 @@ exclusive shapes the only representable states:
 outcome — one seat is awarded the match — so the library owns the whole comment
 sentence and there is nothing for the caller to phrase. `ForAbandoned` is the
 winner-less counterpart, where no seat is awarded and the caller owns the reason
-text. The two never coexist: forfeit sets `ForfeitWinner`, abandonment sets
-`TerminationReason`, and both suppress the match-final line.
+text. The kind of termination is decided once, positively, at the factory — an
+internal `TerminationKind` (`Completed` / `Forfeit` / `Abandoned`) is the single
+source for both the match-final line (`AppendsMatchSuffix` is `Completed && length
+> 0`) and the trailing comment branch. `ForfeitWinner` and `TerminationReason` are
+per-kind payloads whose presence the discriminator makes invariant, not an
+emergent property of nullable-field combinations; a future terminal shape adds a
+`TerminationKind` case rather than another exclusion clause. `TerminationKind` is
+orthogonal to stakes — money (length 0) is a stakes shape and can end in any kind.
 
 No `MatchResult` is ever required — neither a forfeited nor an abandoned match
 produces one.
