@@ -40,6 +40,7 @@ https://github.com/halheinrich/BgMatchFormat_Lib — branch `main`.
 BgMatchFormat_Lib.slnx
 Directory.Packages.props
 .gitattributes                       # *.mat text eol=lf — pins golden line endings
+README.md
 BgMatchFormat_Lib/
   BgMatchFormat_Lib.csproj
   MatchExport.cs                     # public input + validating factories
