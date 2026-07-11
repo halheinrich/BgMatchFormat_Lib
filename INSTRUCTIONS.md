@@ -8,12 +8,7 @@
 
 C# / .NET 10 / Class Library / xUnit.
 
-Match interchange formats over the `BgGame_Lib` substrate. **Charter:** this
-library owns match-level serialization so the substrate stays serialization-free;
-it consumes only the substrate's public surface. The name scopes to *match*
-formats — position-level formats (XGID encode/decode, etc.) are a charter stretch
-or a sibling library, to decide when one is actually wanted. First deliverable:
-Jellyfish-format `.MAT` export.
+Match interchange formats over the `BgGame_Lib` substrate.
 
 ## Solution
 
