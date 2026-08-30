@@ -1,2 +1,6 @@
+# Line-ending policy: LF in the index and in the worktree, on every platform.
+# Ruling: halheinrich/backgammon#28.
+* text=auto eol=lf
+
 # .MAT golden files are byte-exact fixtures: LF endings, no autocrlf mangling.
 *.mat text eol=lf
