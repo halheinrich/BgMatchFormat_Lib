@@ -55,8 +55,9 @@ fixtures they compare against, through `GoldenFile` (read, compare, and a
 regeneration mode), with `GameBuilder` scripting the transcripts. Beside
 them: unit tests for move formatting, grid packing and the factories'
 validation, and `GeometryOracleTests`, which pins the column geometry
-against the real BackgammonGalaxy exports under the umbrella's
-`TestData/FixtureFiles/Mat/`.
+against the real BackgammonGalaxy exports under the umbrella's gitignored
+`TestData/FixtureFiles/Mat/` — local-only, excluded from gating runs by its
+`RequiresFixtureFiles` trait.
 
 ## Architecture
 

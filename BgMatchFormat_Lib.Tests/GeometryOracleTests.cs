@@ -5,13 +5,22 @@ namespace BgMatchFormat_Lib.Tests;
 
 /// <summary>
 /// The anti-tautology guard: the exporter's column geometry is pinned against the
-/// real BackgammonGalaxy exports, not against itself. Those exports are committed,
-/// append-only reference fixtures under
+/// real BackgammonGalaxy exports, not against itself. Those exports are local,
+/// append-only reference fixtures under the gitignored
 /// <c>TestData/FixtureFiles/Mat/match_*.mat</c>; this test derives the canonical
 /// column of each line kind from them and asserts the exporter lands on the same
 /// columns. If the fixtures are missing the test fails loudly rather than skipping
 /// — a silent skip would let the oracle rot.
+///
+/// <para>
+/// Local-only by nature, not by oversight: the oracle's value is that this library
+/// did not write the files it reads, so it cannot be synthesized into a committed
+/// fixture without defeating itself. It therefore carries the CI-excluded
+/// <c>RequiresFixtureFiles</c> trait and nothing gating depends on it; the gating
+/// half is the committed byte-exact goldens under <c>Goldens/</c>.
+/// </para>
 /// </summary>
+[Trait("Category", "RequiresFixtureFiles")]
 public sealed class GeometryOracleTests
 {
     /// <summary>The observed second-column / result origins in a body of .MAT text.</summary>
