@@ -29,33 +29,34 @@ https://github.com/halheinrich/BgMatchFormat_Lib — branch `main`.
 * **BgMoveGen** — *test project only*, for the seeded real-wire golden's play
   agent (`MoveGenerator`). The library itself does not depend on BgMoveGen.
 
-## Directory tree
+## Layout
 
-```
-BgMatchFormat_Lib.slnx
-Directory.Packages.props
-.gitattributes                       # *.mat text eol=lf — pins golden line endings
-README.md
-BgMatchFormat_Lib/
-  BgMatchFormat_Lib.csproj
-  MatchExport.cs                     # public input + validating factories
-  MatHeaderTag.cs                    # public pass-through header tag
-  MatExporter.cs                     # public: Export(MatchExport) -> string
-  MatLayout.cs                       # column geometry + line assembly (SSOT)
-  GameFormatter.cs                   # transcript -> rows; .MAT action vocabulary
-  ColumnGrid.cs                      # the two-column grid-packing engine
-  MoveFormatter.cs                   # Move / Play -> numeric .MAT notation
-BgMatchFormat_Lib.Tests/
-  BgMatchFormat_Lib.Tests.csproj
-  GameBuilder.cs                     # fluent transcript builder for goldens
-  GoldenFile.cs                      # golden read/compare (+ regeneration mode)
-  MatExportGoldenTests.cs            # one golden per required edge case
-  SeededMatchGoldenTests.cs          # end-to-end golden over a real MatchRunner match
-  MoveFormatterTests.cs
-  ColumnGridTests.cs
-  MatchExportValidationTests.cs
-  Goldens/*.mat                      # committed byte-exact fixtures
-```
+Two projects under `BgMatchFormat_Lib.slnx`, governed by repo-root
+`Directory.Build.props` (TFM, `TreatWarningsAsErrors`, XML doc generation)
+and `Directory.Packages.props` (Central Package Management).
+`.gitattributes` pins LF for every text file and names the `.mat` goldens
+explicitly; `README.md` is the repo's one-line description.
+
+**`BgMatchFormat_Lib/`** — the library. Two areas:
+
+- **The public surface** — `MatExporter`, whose `Export(MatchExport)`
+  returns the `.MAT` text; `MatchExport`, the immutable input built only
+  through its validating factories (match, money session, forfeit,
+  abandoned); `MatHeaderTag`, a pass-through header tag.
+- **The `.MAT` rendering** (internal) — `GameFormatter`, one game's
+  transcript to rows and the format's action vocabulary; `ColumnGrid`, the
+  two-column grid-packing engine; `MoveFormatter`, a turn's dice and moves
+  in numeric notation; `MatLayout`, the one home of line geometry.
+
+**`BgMatchFormat_Lib.Tests/`** — xUnit. Golden-file tests over hand-built
+transcripts, one per required edge case, and one over a real seeded
+`MatchRunner` match; `Goldens/` holds the committed byte-exact `.mat`
+fixtures they compare against, through `GoldenFile` (read, compare, and a
+regeneration mode), with `GameBuilder` scripting the transcripts. Beside
+them: unit tests for move formatting, grid packing and the factories'
+validation, and `GeometryOracleTests`, which pins the column geometry
+against the real BackgammonGalaxy exports under the umbrella's
+`TestData/FixtureFiles/Mat/`.
 
 ## Architecture
 
