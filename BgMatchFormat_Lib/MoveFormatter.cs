@@ -9,11 +9,12 @@ namespace BgMatchFormat_Lib;
 /// <see cref="Play"/> / <see cref="Move"/> primitives.
 /// </summary>
 /// <remarks>
-/// Deliberately <em>not</em> <c>BgMoveGen.MoveNotationFormatter</c>: that renderer
-/// emits <c>bar/22</c>, <c>6/off</c>, and <c>8/5(2)</c> chain-collapsed notation,
-/// none of which is legal Jellyfish <c>.MAT</c>. The <c>.MAT</c> dialect is purely
-/// numeric — bar is point <c>25</c>, bear-off is <c>X/0</c>, every hop is written
-/// separately (no <c>(n)</c> counts), and a hit is a trailing <c>*</c>.
+/// Deliberately <em>not</em> the standard notation, <see cref="Play.ToNotation"/>:
+/// that writes <c>bar/22</c>, <c>6/off</c>, and <c>8/5(2)</c> chain-collapsed
+/// notation, none of which is legal Jellyfish <c>.MAT</c>. The <c>.MAT</c> dialect
+/// is purely numeric — bar is point <c>25</c>, bear-off is <c>X/0</c>, every hop is
+/// written separately (no <c>(n)</c> counts), and a hit is a trailing <c>*</c>.
+/// This rendering is the dialect's own, and stays here.
 /// </remarks>
 internal static class MoveFormatter
 {
