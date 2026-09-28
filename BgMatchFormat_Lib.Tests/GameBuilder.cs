@@ -7,9 +7,11 @@ namespace BgMatchFormat_Lib.Tests;
 /// Builds a single game's <see cref="Transcript"/> from a compact, readable
 /// script, for golden-file tests. The transcripts are deterministic and need not
 /// be legal backgammon — the exporter renders the entry stream it is given, so a
-/// short synthetic game exercises the same rendering paths as a real one. A dummy
-/// board is used because the exporter never reads it (moves come from the
-/// <see cref="Play"/>, not the position).
+/// short synthetic game exercises the same rendering paths as a real one. Every
+/// snapshot's board is <see cref="BoardPosition.Empty"/>, a well-formed position
+/// that stands for no particular one: the exporter never reads the board (moves
+/// come from the <see cref="Play"/>, not the position), so a scripted game need
+/// not track one.
 /// </summary>
 /// <remarks>
 /// Cube tracking mirrors the substrate: a <see cref="Double"/> offer's snapshot
@@ -18,8 +20,6 @@ namespace BgMatchFormat_Lib.Tests;
 /// </remarks>
 internal sealed class GameBuilder
 {
-    private static readonly IReadOnlyList<int> DummyBoard = new int[26];
-
     private readonly int _matchLength;
     private readonly int _player1Entering;
     private readonly int _player2Entering;
@@ -113,7 +113,7 @@ internal sealed class GameBuilder
         int onRollScore = onRoll == MatchSeat.One ? _player1Entering : _player2Entering;
         int opponentScore = onRoll == MatchSeat.One ? _player2Entering : _player1Entering;
         var match = new MatchSnapshot(_matchLength, onRollScore, opponentScore, _crawford);
-        return new GameSnapshot(DummyBoard, _cube, CubeOwner.Centered, match);
+        return new GameSnapshot(BoardPosition.Empty, _cube, CubeOwner.Centered, match);
     }
 
     private static Move ParseMove(string notation)
