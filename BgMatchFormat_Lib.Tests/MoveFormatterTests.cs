@@ -26,23 +26,17 @@ public sealed class MoveFormatterTests
     [Fact]
     public void DiceHalf_WithMoves()
     {
-        var play = new Play();
-        play.Add(new Move(8, 5));
-        play.Add(new Move(6, 5));
+        Play play = [new(8, 5), new(6, 5)];
         Assert.Equal("31: 8/5 6/5", MoveFormatter.DiceHalf(3, 1, play));
     }
 
     [Fact]
     public void DiceHalf_DoublesFourHops()
     {
-        var play = new Play();
-        play.Add(new Move(13, 9));
-        play.Add(new Move(13, 9));
-        play.Add(new Move(9, 5));
-        play.Add(new Move(9, 5));
+        Play play = [new(13, 9), new(13, 9), new(9, 5), new(9, 5)];
         Assert.Equal("44: 13/9 13/9 9/5 9/5", MoveFormatter.DiceHalf(4, 4, play));
     }
 
     [Fact]
-    public void DiceHalf_Dance_IsBareDice() => Assert.Equal("52:", MoveFormatter.DiceHalf(5, 2, new Play()));
+    public void DiceHalf_Dance_IsBareDice() => Assert.Equal("52:", MoveFormatter.DiceHalf(5, 2, []));
 }

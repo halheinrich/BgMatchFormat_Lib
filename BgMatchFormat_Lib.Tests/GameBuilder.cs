@@ -44,7 +44,7 @@ internal sealed class GameBuilder
     /// <c>"13/7*"</c> for a hit, <c>"6/0"</c> for a bear-off). No moves = a dance.</summary>
     public GameBuilder Play(MatchSeat mover, int die1, int die2, params string[] moves)
     {
-        var play = new Play();
+        Play play = [];
         foreach (string move in moves) play.Add(ParseMove(move));
         _transcript.Append(new PlayTranscriptEntry(Snapshot(mover), mover, die1, die2, play));
         return this;

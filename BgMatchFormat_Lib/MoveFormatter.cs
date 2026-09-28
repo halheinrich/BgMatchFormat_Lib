@@ -28,9 +28,9 @@ internal static class MoveFormatter
     {
         var sb = new StringBuilder();
         sb.Append(die1).Append(die2).Append(':');
-        for (int i = 0; i < play.Count; i++)
+        foreach (Move move in play)
         {
-            sb.Append(' ').Append(FormatMove(play[i]));
+            sb.Append(' ').Append(FormatMove(move));
         }
         return sb.ToString();
     }
