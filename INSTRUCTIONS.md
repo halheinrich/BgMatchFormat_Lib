@@ -53,9 +53,10 @@ transcripts, one per required edge case, and one over a real seeded
 `MatchRunner` match; `Goldens/` holds the committed byte-exact `.mat`
 fixtures they compare against, through `GoldenFile` (read, compare, and a
 regeneration mode), with `GameBuilder` scripting the transcripts. Beside
-them: unit tests for move formatting, grid packing and the factories'
-validation, and `GeometryOracleTests`, which pins the column geometry
-against the real BackgammonGalaxy exports under the umbrella's gitignored
+them: unit tests for move formatting, grid packing, the factories'
+validation and their collections' immutability (`ReadOnlyCollectionTests`),
+and `GeometryOracleTests`, which pins the column geometry against the real
+BackgammonGalaxy exports under the umbrella's gitignored
 `TestData/FixtureFiles/Mat/` — local-only, excluded from gating runs by its
 `RequiresFixtureFiles` trait.
 
@@ -155,6 +156,16 @@ orthogonal to stakes — money (length 0) is a stakes shape and can end in any k
 No `MatchResult` is ever required — neither a forfeited nor an abandoned match
 produces one.
 
+**No public member hands out a live mutable collection**
+(halheinrich/backgammon#273's collection rider). Each factory takes an
+immutable copy (`ImmutableArray`) of the games and tags it is given,
+validates the copy, and holds and hands out only that as `CompletedGames` /
+`Tags`; so neither the caller's own list nor a cast can change an export
+after validation (`ForMatch`'s completion check included).
+`ReadOnlyCollectionTests` pins both, for every factory.
+`PartialGame` and each game's transcript are BgGame_Lib's append-only
+`Transcript`, held as given.
+
 ## Public API
 
 ```csharp
@@ -167,8 +178,8 @@ public sealed class MatchExport
     public int MatchLength { get; }                         // 0 = money session
     public string Player1Name { get; }                      // left column
     public string Player2Name { get; }                      // right column
-    public IReadOnlyList<MatHeaderTag> Tags { get; }
-    public IReadOnlyList<GameRecord> CompletedGames { get; }
+    public IReadOnlyList<MatHeaderTag> Tags { get; }        // immutable copy
+    public IReadOnlyList<GameRecord> CompletedGames { get; } // immutable copy
     public Transcript? PartialGame { get; }
     public MatchSeat? ForfeitWinner { get; }                // set by ForForfeit only
     public string? TerminationReason { get; }               // set by ForAbandoned only

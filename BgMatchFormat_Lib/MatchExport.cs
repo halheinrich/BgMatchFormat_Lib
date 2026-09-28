@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using BgGame_Lib;
 
 namespace BgMatchFormat_Lib;
@@ -21,6 +22,14 @@ namespace BgMatchFormat_Lib;
 /// states, and validate their inputs eagerly so a malformed export fails at
 /// construction rather than producing corrupt <c>.MAT</c> text.
 /// </para>
+/// <para>
+/// No member hands out a collection its caller can change
+/// (halheinrich/backgammon#273's collection rider). Each factory takes an
+/// immutable copy of the games and tags it is given, validates that copy, and
+/// holds and hands out only it: a caller changing its own list afterwards, or
+/// casting <see cref="CompletedGames"/> or <see cref="Tags"/> to a writable
+/// type, cannot alter an export once it is validated.
+/// </para>
 /// </remarks>
 public sealed class MatchExport
 {
@@ -36,10 +45,16 @@ public sealed class MatchExport
     /// <summary>Player 2's display name — owner of the right move-pair column.</summary>
     public string Player2Name { get; }
 
-    /// <summary>Pass-through header tags, emitted verbatim in order.</summary>
+    /// <summary>
+    /// Pass-through header tags, emitted verbatim in order: an immutable copy of
+    /// the tags the factory was given.
+    /// </summary>
     public IReadOnlyList<MatHeaderTag> Tags { get; }
 
-    /// <summary>The finished games, in play order.</summary>
+    /// <summary>
+    /// The finished games, in play order: an immutable copy of the list the
+    /// factory was given.
+    /// </summary>
     public IReadOnlyList<GameRecord> CompletedGames { get; }
 
     /// <summary>
@@ -130,15 +145,14 @@ public sealed class MatchExport
                 "A match must have a positive length; use ForMoneySession for money play.");
         ValidateName(player1Name, nameof(player1Name));
         ValidateName(player2Name, nameof(player2Name));
-        ArgumentNullException.ThrowIfNull(games);
-        if (games.Count == 0)
+        IReadOnlyList<GameRecord> gameList = ValidateGames(games, nameof(games));
+        if (gameList.Count == 0)
             throw new ArgumentException("A completed match needs at least one game.", nameof(games));
         IReadOnlyList<MatHeaderTag> tagList = ValidateTags(tags);
-        foreach (GameRecord game in games) RequirePlayed(game, nameof(games));
-        RequireCompletes(games, matchLength);
+        RequireCompletes(gameList, matchLength);
 
         return new MatchExport(
-            matchLength, player1Name, player2Name, games, null,
+            matchLength, player1Name, player2Name, gameList, null,
             TerminationKind.Completed, null, null, tagList);
     }
 
@@ -154,12 +168,11 @@ public sealed class MatchExport
     {
         ValidateName(player1Name, nameof(player1Name));
         ValidateName(player2Name, nameof(player2Name));
-        ArgumentNullException.ThrowIfNull(games);
+        IReadOnlyList<GameRecord> gameList = ValidateGames(games, nameof(games));
         IReadOnlyList<MatHeaderTag> tagList = ValidateTags(tags);
-        foreach (GameRecord game in games) RequirePlayed(game, nameof(games));
 
         return new MatchExport(
-            0, player1Name, player2Name, games, null,
+            0, player1Name, player2Name, gameList, null,
             TerminationKind.Completed, null, null, tagList);
     }
 
@@ -191,15 +204,14 @@ public sealed class MatchExport
                 "Match length cannot be negative (0 = money session).");
         ValidateName(player1Name, nameof(player1Name));
         ValidateName(player2Name, nameof(player2Name));
-        ArgumentNullException.ThrowIfNull(completedGames);
+        IReadOnlyList<GameRecord> gameList = ValidateGames(completedGames, nameof(completedGames));
         if (!Enum.IsDefined(forfeitWinner))
             throw new ArgumentOutOfRangeException(nameof(forfeitWinner), forfeitWinner,
                 "Forfeit winner must be a defined match seat.");
         IReadOnlyList<MatHeaderTag> tagList = ValidateTags(tags);
-        foreach (GameRecord game in completedGames) RequirePlayed(game, nameof(completedGames));
 
         return new MatchExport(
-            matchLength, player1Name, player2Name, completedGames, partialGame,
+            matchLength, player1Name, player2Name, gameList, partialGame,
             TerminationKind.Forfeit, forfeitWinner, null, tagList);
     }
 
@@ -234,13 +246,12 @@ public sealed class MatchExport
                 "Match length cannot be negative (0 = money session).");
         ValidateName(player1Name, nameof(player1Name));
         ValidateName(player2Name, nameof(player2Name));
-        ArgumentNullException.ThrowIfNull(completedGames);
+        IReadOnlyList<GameRecord> gameList = ValidateGames(completedGames, nameof(completedGames));
         ValidateReason(terminationReason);
         IReadOnlyList<MatHeaderTag> tagList = ValidateTags(tags);
-        foreach (GameRecord game in completedGames) RequirePlayed(game, nameof(completedGames));
 
         return new MatchExport(
-            matchLength, player1Name, player2Name, completedGames, partialGame,
+            matchLength, player1Name, player2Name, gameList, partialGame,
             TerminationKind.Abandoned, null, terminationReason, tagList);
     }
 
@@ -260,12 +271,28 @@ public sealed class MatchExport
                 nameof(terminationReason));
     }
 
+    /// <summary>
+    /// An immutable copy of <paramref name="games"/>, each game checked as played.
+    /// The copy is taken first, so what is validated is what the export holds.
+    /// </summary>
+    private static IReadOnlyList<GameRecord> ValidateGames(
+        IReadOnlyList<GameRecord> games, string parameterName)
+    {
+        ArgumentNullException.ThrowIfNull(games, parameterName);
+        ImmutableArray<GameRecord> copy = ImmutableArray.CreateRange(games);
+        foreach (GameRecord game in copy) RequirePlayed(game, parameterName);
+        return copy;
+    }
+
+    /// <summary>
+    /// An immutable copy of <paramref name="tags"/> (empty when none are given),
+    /// each tag checked against the grammar. The copy is taken first, so what is
+    /// validated is what the export holds.
+    /// </summary>
     private static IReadOnlyList<MatHeaderTag> ValidateTags(IEnumerable<MatHeaderTag>? tags)
     {
-        if (tags is null) return [];
-
-        var list = new List<MatHeaderTag>();
-        foreach (MatHeaderTag tag in tags)
+        ImmutableArray<MatHeaderTag> copy = tags is null ? [] : ImmutableArray.CreateRange(tags);
+        foreach (MatHeaderTag tag in copy)
         {
             ArgumentNullException.ThrowIfNull(tag, nameof(tags));
             ArgumentException.ThrowIfNullOrEmpty(tag.Name, nameof(tags));
@@ -280,10 +307,9 @@ public sealed class MatchExport
                 throw new ArgumentException(
                     $"Header tag value for \"{tag.Name}\" contains a quote or newline; .MAT has no escaping convention.",
                     nameof(tags));
-            list.Add(tag);
         }
 
-        return list;
+        return copy;
     }
 
     private static void RequirePlayed(GameRecord game, string parameterName)
